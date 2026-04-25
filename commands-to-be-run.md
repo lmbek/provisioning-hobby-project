@@ -55,18 +55,22 @@ sudo apt install golang-go
 
 ---
 
-### 3. Install Make
-Make is used to run the project commands (like `make bootstrap`).
+### 3. Install Make, jq, and Netcat
+Make is used to run the project commands, jq is for processing data, and netcat is for health checks.
 
 #### **macOS**
-Already installed (or `brew install make`).
+```bash
+brew install make jq netcat
+```
 
 #### **Windows**
 ```powershell
-choco install make
+choco install make jq
+# Note: Netcat is usually available in WSL or can be installed via 'make setup'
 ```
 
 #### **Linux**
 ```bash
-sudo apt install build-essential
+sudo apt update
+sudo apt install build-essential jq netcat-openbsd
 ```

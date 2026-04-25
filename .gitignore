@@ -1,10 +1,10 @@
 .idea
+secrets/
 .env
-.ip
 helloworld
-terraform.tfstate*
-.terraform
-.terraform.lock.hcl
+infra/.terraform/
+infra/state/
+infra/.terraform.lock.hcl
 *.log
-deploy/first-time-provisioning-ssh-key.*
-TODO.md
+*.private
+*.public

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Node | {{.Hostname}}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="theme-{{.Theme}}">
+    <div class="bg-pattern"></div>
+    <div class="container">
+        <div class="glass-card">
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                Active Node
+            </div>
+            <h1>Provisioning Success</h1>
+            <p>Cloud infrastructure verified and operational. System core is responsive.</p>
+            
+            <div class="data-grid">
+                <div class="data-item">
+                    <span class="label">Identifier</span>
+                    <span class="value">{{.Hostname}}</span>
+                </div>
+                <div class="data-item">
+                    <span class="label">Access Port</span>
+                    <span class="value">{{.Port}}</span>
+                </div>
+            </div>
+        </div>
+        <footer>
+            &copy; 2026 LMBEK PROTOCOL // SECURE DEPLOYMENT
+        </footer>
+    </div>
+</body>
+</html>
