@@ -1,1 +1,10 @@
 .idea
+.env
+.ip
+helloworld
+terraform.tfstate*
+.terraform
+.terraform.lock.hcl
+*.log
+deploy/first-time-provisioning-ssh-key.*
+TODO.md

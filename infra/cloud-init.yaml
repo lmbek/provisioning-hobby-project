@@ -10,3 +10,5 @@ runcmd:
     - ufw allow 8080
     - ufw --force enable
     - mkdir -p /opt/app
+    - printf "APP_PORT=8080\n" > /etc/helloworld.env
+    - systemctl restart ssh
