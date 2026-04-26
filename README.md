@@ -13,7 +13,7 @@ The infrastructure is managed declaratively using Terraform. It provisions a dyn
 - **Scalability**: Configurable server count (default: 2) via the `SERVER_COUNT` variable in your `.env` file.
 - **Operating System**: Ubuntu 22.04 LTS.
 - **Server Type**: CX23.
-- **Automated Secrets**: Generates a unique, secure root password for each instance, stored locally in `secrets/.passwords`.
+- **Automated Secrets**: Generates a unique, secure root password for each instance, stored locally in `secrets/passwords`.
 
 ### 2. Security & Configuration Layer (Cloud-Init)
 Upon initial boot, each server undergoes rigorous configuration via cloud-init:
@@ -54,10 +54,7 @@ Configuration is handled through environment variables.
    SERVER_COUNT=2
    ```
 
-2. **Infrastructure Secrets**: Create `secrets/hcloud_token.secret`:
-   ```env
-   HCLOUD_TOKEN=your_hetzner_cloud_api_token
-   ```
+2. **Infrastructure Secrets**: Create `secrets/hcloud_token` and paste your Hetzner Cloud API token into it.
 
 ### 2. Infrastructure Bootstrapping
 To provision the hardware, harden the operating systems, and deploy the application across all instances:
@@ -69,7 +66,7 @@ make bootstrap
 This command automates:
 - Generation of project-specific SSH keys (stored in `~/.ssh/` and `secrets/`).
 - Terraform initialization and multi-server application.
-- Saving instance IPs to `secrets/.ip` and root passwords to `secrets/.passwords`.
+- Saving instance IPs to `secrets/ips` and root passwords to `secrets/passwords`.
 - Concurrent application deployment and systemd service activation.
 
 ### 3. Application Updates

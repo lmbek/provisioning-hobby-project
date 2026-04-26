@@ -6,7 +6,7 @@ APP_NAME=helloworld
 # SSH_KEY should be passed from Makefile. Defaulting if not set.
 SSH_KEY=${SSH_KEY:-$HOME/.ssh/first-time-provisioning/id_ed25519}
 
-IP_FILE=secrets/.ip
+IP_FILE=secrets/ips
 
 if [ ! -f $IP_FILE ]; then
     echo "❌ Error: $IP_FILE file not found."

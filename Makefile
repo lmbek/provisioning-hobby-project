@@ -1,10 +1,11 @@
 APP_NAME=helloworld
 TF_DIR=infra
 DEPLOY_SCRIPT=deploy/deploy.sh
-IP_FILE=secrets/.ip
-PASS_FILE=secrets/.passwords
+IP_FILE=secrets/ips
+PASS_FILE=secrets/passwords
 ENV_FILE=.env
-SECRET_FILE=secrets/hcloud_token.secret
+SECRET_FILE=secrets/hcloud_token
+HCLOUD_TOKEN=$(shell if [ -f $(SECRET_FILE) ]; then cat $(SECRET_FILE); fi)
 
 # Path for project-specific SSH key
 # We use a location that works even if the project is on a Windows mount (WSL)
@@ -18,18 +19,12 @@ ifneq ("$(wildcard $(ENV_FILE))","")
     export $(shell sed 's/=.*//' $(ENV_FILE))
 endif
 
-# Load secrets from secrets/hetzner_cloud_token.secret
-ifneq ("$(wildcard $(SECRET_FILE))","")
-    include $(SECRET_FILE)
-    export $(shell sed 's/=.*//' $(SECRET_FILE))
-endif
-
 # Default server count if not provided in .env
 SERVER_COUNT ?= 2
 
-.PHONY: bootstrap setup infra deploy down keys ssh
+.PHONY: provisioning setup infra deploy down keys ssh
 
-bootstrap:
+provisioning:
 	@$(MAKE) keys
 	@$(MAKE) infra
 	@$(MAKE) deploy
@@ -63,21 +58,21 @@ infra:
 		echo "Please run 'make setup' (if on WSL/Linux) or install it manually."; \
 		exit 1; \
 	fi
-	cd $(TF_DIR) && terraform init
-	cd $(TF_DIR) && terraform apply -auto-approve -var="hcloud_token=$(HCLOUD_TOKEN)" -var="server_count=$(SERVER_COUNT)"
-	cd $(TF_DIR) && terraform output -json ips | jq -r '.[]' > ../$(IP_FILE)
-	cd $(TF_DIR) && terraform output -json passwords | jq -r '.[]' > ../$(PASS_FILE)
+	@cd $(TF_DIR) && terraform init
+	@cd $(TF_DIR) && terraform apply -auto-approve -var="hcloud_token=$(HCLOUD_TOKEN)" -var="server_count=$(SERVER_COUNT)"
+	@cd $(TF_DIR) && terraform output -json ips | jq -r '.[]' > ../$(IP_FILE)
+	@cd $(TF_DIR) && terraform output -json passwords | jq -r '.[]' > ../$(PASS_FILE)
 
 deploy:
-	APP_PORTS=$(APP_PORTS) SSH_KEY=$(SSH_KEY) $(DEPLOY_SCRIPT)
+	@APP_PORTS=$(APP_PORTS) SSH_KEY=$(SSH_KEY) bash $(DEPLOY_SCRIPT)
 
 down:
-	cd $(TF_DIR) && terraform destroy -auto-approve -var="hcloud_token=$(HCLOUD_TOKEN)" -var="server_count=$(SERVER_COUNT)"
-	rm -f $(IP_FILE)
-	rm -f $(PASS_FILE)
-	rm -f $(SSH_PUB_KEY)
-	rm -rf $(SSH_KEY_DIR)
-	rm -rf infra/state/
+	@cd $(TF_DIR) && terraform destroy -auto-approve -var="hcloud_token=$(HCLOUD_TOKEN)" -var="server_count=$(SERVER_COUNT)"
+	@rm -f $(IP_FILE)
+	@rm -f $(PASS_FILE)
+	@rm -f $(SSH_PUB_KEY)
+	@rm -rf $(SSH_KEY_DIR)
+	@rm -rf infra/state/
 
 ssh:
 	@$(MAKE) -C scripts ssh
