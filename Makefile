@@ -16,7 +16,7 @@ SSH_PUB_KEY=secrets/first-time-provisioning-ssh-key.public
 SSH_PASSPHRASE_FILE=secrets/ssh_key_passphrase
 SSH_CONFIG=secrets/ssh_config
 SSH_KNOWN_HOSTS=secrets/known_hosts
-SSH_PORT=2222
+SSH_PORT=22
 
 # Load app configuration from .env
 ifneq ("$(wildcard $(ENV_FILE))","")

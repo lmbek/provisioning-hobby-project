@@ -53,7 +53,7 @@ resource "hcloud_ssh_key" "default" {
 resource "hcloud_server" "app" {
   count       = var.server_count
   name        = "first-time-provisioning-app-${count.index + 1}"
-  image       = "ubuntu-22.04"
+  image       = "ubuntu-24.04"
   server_type = "cx23"
 
   ssh_keys = [hcloud_ssh_key.default.id]
@@ -77,7 +77,7 @@ resource "hcloud_server" "app" {
   provisioner "local-exec" {
     when    = destroy
     # We use a robust command that works in bash-like environments (WSL/Linux/macOS)
-    command = "if [ -f ../secrets/known_hosts ]; then ssh-keygen -f ../secrets/known_hosts -R ${self.ipv4_address} && ssh-keygen -f ../secrets/known_hosts -R [${self.ipv4_address}]:2222 && rm -f ../secrets/known_hosts.old; fi || true"
+    command = "if [ -f ../secrets/known_hosts ]; then ssh-keygen -f ../secrets/known_hosts -R ${self.ipv4_address} && ssh-keygen -f ../secrets/known_hosts -R [${self.ipv4_address}]:22 && rm -f ../secrets/known_hosts.old; fi || true"
   }
 }
 

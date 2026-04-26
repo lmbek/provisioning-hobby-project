@@ -1,7 +1,7 @@
 #cloud-config
 
 package_update: true
-package_upgrade: true
+package_upgrade: false
 
 packages:
     - ufw
@@ -22,14 +22,14 @@ write_files:
     content: |
       [sshd]
       enabled = true
-      port = 2222
+      port = 22
       filter = sshd
       logpath = /var/log/auth.log
       maxretry = 5
       bantime = 1h
 
 runcmd:
-    - ufw allow 2222/tcp
+    - ufw allow 22/tcp
     - ufw allow 80
     - ufw allow 443
     - ufw --force enable
@@ -51,7 +51,7 @@ runcmd:
     - chmod 400 /home/deployer/.google_authenticator
     # Best Practice 2026: SSH Hardening
     # 0. Change SSH Port and restrict users
-    - sed -i 's/^#\?Port .*/Port 2222/' /etc/ssh/sshd_config
+    - sed -i 's/^#\?Port .*/Port 22/' /etc/ssh/sshd_config
     - echo "AllowUsers deployer" >> /etc/ssh/sshd_config
     # 1. Enable Password Authentication (as one of the factors)
     - sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config

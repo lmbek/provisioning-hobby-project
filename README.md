@@ -11,7 +11,7 @@ The system is designed to handle multiple server instances and incorporates mult
 The infrastructure is managed declaratively using Terraform. It provisions a dynamic number of Virtual Private Servers (VPS) on Hetzner Cloud:
 - **State Management**: Terraform state is localized in `infra/state/` to keep the configuration directory clean.
 - **Scalability**: Configurable server count (default: 2) via the `SERVER_COUNT` variable in your `.env` file.
-- **Operating System**: Ubuntu 22.04 LTS.
+- **Operating System**: Ubuntu 24.04 LTS.
 - **Server Type**: CX23.
 - **Unique Naming**: Servers are prefixed with `first-time-provisioning-app-` to ensure isolation and prevent conflicts with other projects.
 - **Automated Secrets**: Generates unique, secure root and deployer passwords for each instance, stored locally in `secrets/passwords`, `secrets/deployer_passwords`, and `secrets/pam_tokens`.
@@ -149,7 +149,7 @@ This project implements a defense-in-depth security model optimized for 2026 sta
 
 ### 2. Implemented Hardening Measures
 
-*   **SSH Port Obscurity (Port 2222)**: While not a "cryptographic" defense, moving SSH to port 2222 eliminates 99% of automated "script kiddie" noise and log bloat.
+*   **SSH Port (Port 22)**: We use the standard SSH port for this project.
     *   *Source*: [SANS Institute: Securing SSH](https://www.sans.org/blog/securing-ssh/)
 *   **Encapsulated Passphrase Protection**: Unlike standard automated keys, our Ed25519 key is generated with a high-entropy passphrase stored in `secrets/ssh_key_passphrase`. This ensures that even if the private key file is stolen from your machine, it is unusable without the second factor.
 *   **User Segregation & `AllowUsers`**: Access is strictly limited to the `deployer` user via the `AllowUsers` directive. Root access is restricted and intended only for initial provisioning.
@@ -178,8 +178,8 @@ For **First-Time Provisioning**, this project provides a "Zero-Trust Lite" model
 ### 5. Active Defense & Patching
 *   **Unattended Upgrades**: The system is configured to automatically apply security patches. In 2026, manual patching is a liability; "auto-patch by default" is the professional standard.
     *   *Source*: [Debian Wiki: UnattendedUpgrades](https://wiki.debian.org/UnattendedUpgrades)
-*   **Fail2Ban on Custom Port**: Fail2Ban is configured to monitor the non-standard port 2222. It automatically blocks IPs that exhibit aggressive scanning behavior by adding them to the firewall's drop list.
-*   **UFW (Uncomplicated Firewall)**: Strict "Default Deny" policy. Only ports 2222 (SSH), 80 (HTTP), and 443 (HTTPS) are exposed.
+*   **Fail2Ban**: Fail2Ban is configured to monitor the SSH port. It automatically blocks IPs that exhibit aggressive scanning behavior by adding them to the firewall's drop list.
+*   **UFW (Uncomplicated Firewall)**: Strict "Default Deny" policy. Only ports 22 (SSH), 80 (HTTP), and 443 (HTTPS) are exposed.
 
 ### 6. Application-Level Security
 *   **Non-Root Execution**: The Go binary does not run as root. It uses Linux Capabilities (`cap_net_bind_service`) to bind to port 80/443, ensuring that even if the application is compromised, the attacker does not have immediate root access to the OS.
@@ -189,7 +189,7 @@ For **First-Time Provisioning**, this project provides a "Zero-Trust Lite" model
 
 When you run `make deploy` or `make ssh`, the following cryptographic handshake occurs:
 
-1.  **Identity Selection**: The `ssh` client is forced (via `-F secrets/ssh_config`) to use only the project-specific Ed25519 key and connect to Port 2222.
+1.  **Identity Selection**: The `ssh` client is forced (via `-F secrets/ssh_config`) to use only the project-specific Ed25519 key and connect to Port 22.
 2.  **Server Fingerprinting**: The client checks `secrets/known_hosts`. If the server's fingerprint has changed (e.g., you rebuilt the server), the connection is aborted to prevent Man-in-the-Middle (MITM) attacks.
 3.  **Key Decryption**: The client prompts for (and the automation provides) the high-entropy passphrase for the private key, ensuring the key is unusable if stolen.
 4.  **Modern Key Exchange (KEX)**: The connection is encrypted using `curve25519-sha256`. 
@@ -203,7 +203,7 @@ When you run `make deploy` or `make ssh`, the following cryptographic handshake 
 
 ### How good is this security?
 This setup is rated as **Excellent (Tier 2 - Hardened Project)** for 2026. 
-- **Botnet Resistance**: Moving to Port 2222 and disabling standard password auth makes your server "invisible" to 99.9% of automated scanners.
+- **Botnet Resistance**: Disabling standard password auth makes your server "invisible" to 99.9% of automated scanners.
 - **Brute Force**: Mathematically impossible. Even with the private key, an attacker needs the passphrase, the system password, and the TOTP token.
 
 ### Why we don't do more (for now)
@@ -223,4 +223,4 @@ This setup is rated as **Excellent (Tier 2 - Hardened Project)** for 2026.
 ---
 
 ## Troubleshooting
-If the application is unreachable, verify the status of the cloud-init process. Initial security hardening and package installation (on Port 2222) may take up to 90 seconds. Access via: `http://<server-ip>`.
+If the application is unreachable, verify the status of the cloud-init process. Initial security hardening and package installation may take up to 90 seconds. Access via: `http://<server-ip>`.
