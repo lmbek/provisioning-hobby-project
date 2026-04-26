@@ -5,9 +5,9 @@
 
 set -e
 
-IP_FILE="../secrets/ips"
+IP_FILE="../deploy/state/ips"
 SSH_KEY=${SSH_KEY:-$HOME/.ssh/first-time-provisioning/id_ed25519}
-SSH_CONFIG="../secrets/ssh_config"
+SSH_CONFIG="../deploy/state/ssh_config"
 
 if [ ! -f "$SSH_KEY" ]; then
     echo "❌ Error: SSH key not found at $SSH_KEY"
@@ -23,8 +23,8 @@ fi
 chmod 600 "$SSH_KEY"
 chmod 600 "$SSH_CONFIG"
 
-DEPLOYER_PASSWORD_FILE="../secrets/deployer_passwords"
-PAM_TOKEN_FILE="../secrets/pam_tokens"
+DEPLOYER_PASSWORD_FILE="../deploy/state/deployer_passwords"
+PAM_TOKEN_FILE="../deploy/state/pam_tokens"
 
 if [ ! -f "$IP_FILE" ]; then
     echo "❌ Error: $IP_FILE not found. Have you run 'make bootstrap'?"
@@ -61,14 +61,14 @@ else
 fi
 
 # Display passwords if available
-if [ -f "../secrets/deployer_passwords" ]; then
-    PASS=$(sed -n "$((CHOICE ? CHOICE : 1))p" "../secrets/deployer_passwords" | tr -d '\r\n' | xargs)
+if [ -f "../deploy/state/deployer_passwords" ]; then
+    PASS=$(sed -n "$((CHOICE ? CHOICE : 1))p" "../deploy/state/deployer_passwords" | tr -d '\r\n' | xargs)
     if [ -n "$PASS" ]; then
         echo "🔑 Deployer Password: $PASS"
     fi
 fi
-if [ -f "../secrets/passwords" ]; then
-    ROOT_PASS=$(sed -n "$((CHOICE ? CHOICE : 1))p" "../secrets/passwords" | tr -d '\r\n' | xargs)
+if [ -f "../deploy/state/passwords" ]; then
+    ROOT_PASS=$(sed -n "$((CHOICE ? CHOICE : 1))p" "../deploy/state/passwords" | tr -d '\r\n' | xargs)
     if [ -n "$ROOT_PASS" ]; then
         echo "🔑 Root Password: $ROOT_PASS"
     fi
@@ -84,8 +84,8 @@ if [ -f "$PAM_TOKEN_FILE" ]; then
     fi
 fi
 
-if [ -f "../secrets/ssh_key_passphrase" ]; then
-    KEY_PASS=$(cat "../secrets/ssh_key_passphrase" | tr -d '\r\n')
+if [ -f "../deploy/state/ssh_key_passphrase" ]; then
+    KEY_PASS=$(cat "../deploy/state/ssh_key_passphrase" | tr -d '\r\n')
     echo "🔑 SSH Key Passphrase: $KEY_PASS"
 fi
 

@@ -47,7 +47,7 @@ resource "random_password" "pam_token" {
 
 resource "hcloud_ssh_key" "default" {
   name       = "first-time-provisioning-key"
-  public_key = trimspace(file("../secrets/first-time-provisioning-ssh-key.public"))
+  public_key = trimspace(file("../deploy/state/first-time-provisioning-ssh-key.public"))
 }
 
 resource "hcloud_server" "app" {
@@ -63,7 +63,7 @@ resource "hcloud_server" "app" {
     root_password     = random_password.root_password[count.index].result
     deployer_password = random_password.deployer_password[count.index].result
     pam_token         = random_password.pam_token[count.index].result
-    ssh_key           = trimspace(file("../secrets/first-time-provisioning-ssh-key.public"))
+    ssh_key           = trimspace(file("../deploy/state/first-time-provisioning-ssh-key.public"))
   })
 
   # Prevent accidental replacements if user_data changes slightly.
@@ -77,7 +77,7 @@ resource "hcloud_server" "app" {
   provisioner "local-exec" {
     when    = destroy
     # We use a robust command that works in bash-like environments (WSL/Linux/macOS)
-    command = "if [ -f ../secrets/known_hosts ]; then ssh-keygen -f ../secrets/known_hosts -R ${self.ipv4_address} && ssh-keygen -f ../secrets/known_hosts -R [${self.ipv4_address}]:22 && rm -f ../secrets/known_hosts.old; fi || true"
+    command = "if [ -f ../deploy/ansible/known_hosts ]; then ssh-keygen -f ../deploy/ansible/known_hosts -R ${self.ipv4_address} && ssh-keygen -f ../deploy/ansible/known_hosts -R [${self.ipv4_address}]:22 && rm -f ../deploy/ansible/known_hosts.old; fi || true"
   }
 }
 
