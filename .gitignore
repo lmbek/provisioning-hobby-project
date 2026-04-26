@@ -1,12 +1,11 @@
 .idea
 secrets/
 .env
-helloworld
+bin/
 infra/.terraform/
 infra/state/
 infra/.terraform.lock.hcl
 deploy/state/
 deploy/ansible/inventory.ini
-deploy/ansible/known_hosts
-deploy/ansible/known_hosts.old
 *.log
+/deploy/ansible/known_hosts

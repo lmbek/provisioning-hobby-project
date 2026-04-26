@@ -39,11 +39,12 @@ The application is a modular HTTP server written in Go that follows modern archi
 - **Privileged Ports**: The deployment process automatically grants the binary `cap_net_bind_service` capabilities to allow binding to ports below 1024 without running as root.
 - **Service Management**: Managed by systemd on the remote host to ensure persistence, automatic restarts, and centralized logging.
 
-### 4. Orchestration & Maintenance (Ansible)
-For ongoing operations, the project uses Ansible playbooks to ensure consistent and reliable management across the cluster:
-- **Deployment**: `ansible/deploy.yml` automates the process of stopping the service, uploading the Go binary and assets, setting capabilities, and restarting the service.
+### 4. Orchestration & Maintenance (Go CLI & Ansible)
+For ongoing operations, the project uses a custom Go CLI and Ansible playbooks to ensure consistent and reliable management across the cluster:
+- **Deployment (Go CLI)**: `make deploy` uses a custom Go-based orchestrator that handles the 4-factor MFA handshake and application delivery without external dependencies like Ansible.
+- **Advanced Orchestration (Ansible)**: `ansible/ansible_deploy.yml` (run via `make ansible_deploy`) provides a secondary deployment path for teams preferring Ansible.
 - **Maintenance**: `ansible/maintenance.yml` provides tasks for checking for updates and performing system-wide upgrades.
-- **MFA Compatibility**: Integrated with a multiplexed SSH tunnel system (via `deploy/open_tunnels.sh`) to maintain the 4-factor authentication model while allowing automated orchestration.
+- **MFA Automation**: Integrated with a custom Go-based tunnel system (built into the Go CLI) to maintain the 4-factor authentication model while allowing automated orchestration.
 
 ## Prerequisites
 Detailed installation instructions are available in `commands-to-be-run.md`. The local environment can be automatically configured by running:
@@ -94,13 +95,13 @@ make deploy
 
 It is important to understand when to use each command to maintain a professional workflow:
 
-| Feature | `make bootstrap` | `make deploy` |
-| :--- | :--- | :--- |
-| **Scope** | Full Stack (Keys + Infra + App) | Application Only |
-| **Speed** | Slower (minutes) | Fast (seconds) |
-| **Infra Changes** | Yes (Updates/Replaces servers) | No (Skips Terraform) |
-| **App Changes** | Yes (Builds + Uploads) | Yes (Builds + Uploads) |
-| **Risk** | High (Possible server replacement) | Low (Binary update only) |
+| Feature | `make bootstrap` | `make deploy` | `make sh_deploy` |
+| :--- | :--- | :--- | :--- |
+| **Scope** | Full Stack (Keys + Infra + App) | Application Only | Application Only (Shell) |
+| **Speed** | Slower (minutes) | Fast (seconds) | Fast (seconds) |
+| **Infra Changes** | Yes (Updates/Replaces servers) | No (Skips Terraform) | No (Skips Terraform) |
+| **App Changes** | Yes (Builds + Uploads) | Yes (Builds + Uploads) | Yes (Builds + Uploads) |
+| **Risk** | High (Possible server replacement) | Low (Binary update only) | Low (Binary update only) |
 
 ### When to use what:
 *   **Use `make bootstrap`** when you change:
@@ -110,6 +111,11 @@ It is important to understand when to use each command to maintain a professiona
 *   **Use `make deploy`** when you change:
     *   `app/main.go` (any Go code changes).
     *   Port configurations in `.env` (`APP_PORTS`).
+    *   The custom Go CLI in `deploy/go-cli/`.
+*   **Performance optimization**: The `go-cli` binary is cached and only rebuilt when its source code changes, making subsequent deployments and SSH connections significantly faster.
+*   **Use `make sh_deploy`** when you want to use:
+    *   The legacy shell-based deployment script in `deploy/sh/deploy.sh`.
+*   **Use `make ansible_deploy`** when you change:
     *   The Ansible playbooks in the `deploy/ansible/` directory.
 
 ### 4. Remote Access
@@ -164,6 +170,7 @@ This project implements a defense-in-depth security model optimized for 2026 sta
     2.  **Something you Know**: The Key Passphrase.
     3.  **Something you Know**: The Deployer System Password.
     4.  **Something you Have (Token)**: The TOTP Verification Code.
+    All these factors are automatically handled by the custom Go CLI during deployment and tunnel establishment.
 *   **Cryptographic Purity**: We enforce modern algorithms and **Encrypt-then-MAC (EtM)** to prevent padding oracle attacks.
     *   *Source*: [OpenSSH 6.2+ Security Features](https://www.openssh.com/txt/release-6.2)
 
