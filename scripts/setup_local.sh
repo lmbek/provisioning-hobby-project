@@ -15,11 +15,11 @@ if [ "$OS" = "Darwin" ]; then
         echo "❌ Homebrew not found. Please install it first: https://brew.sh/"
         exit 1
     fi
-    brew install terraform go make jq
+    brew install terraform go make jq oathtool expect ansible
 elif [ "$OS" = "Linux" ]; then
     echo "🐧 Linux detected. Using apt..."
     sudo apt update
-    sudo apt install -y curl wget gpg lsb-release build-essential jq netcat-openbsd
+    sudo apt install -y curl wget gpg lsb-release build-essential jq netcat-openbsd oathtool expect ansible
 
     # Install Terraform
     if ! command -v terraform &> /dev/null; then

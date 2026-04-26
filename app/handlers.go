@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 func (s *AppServer) handleIndex() http.HandlerFunc {
@@ -21,8 +23,20 @@ func (s *AppServer) handleIndex() http.HandlerFunc {
 		}).String()
 
 		theme := "default"
-		if hostname == "hello-app-1" {
-			theme = "alt"
+		themes := []string{"default", "alt", "purple", "green", "orange"}
+
+		// Extract index from hostname: "first-time-provisioning-app-X"
+		parts := strings.Split(hostname, "-")
+		if len(parts) > 0 {
+			lastPart := parts[len(parts)-1]
+			if idx, err := strconv.Atoi(lastPart); err == nil {
+				// We use (idx-1) because hostnames start at 1, but we want 0-based index
+				targetIdx := idx - 1
+				if targetIdx < 0 {
+					targetIdx = 0
+				}
+				theme = themes[targetIdx%len(themes)]
+			}
 		}
 
 		data := PageData{

@@ -1,0 +1,88 @@
+---
+- name: Deploy Go Application
+  hosts: app
+  become: yes
+  vars:
+    app_ports: "{{ lookup('env', 'APP_PORTS') | default('80,443', true) }}"
+  tasks:
+    - name: Ensure target directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: deployer
+        group: deployer
+        mode: '0755'
+      loop:
+        - /opt/app
+        - /opt/app/templates
+        - /opt/app/static
+
+    - name: Stop helloworld service
+      systemd:
+        name: helloworld
+        state: stopped
+      failed_when: false
+
+    - name: Copy helloworld binary
+      copy:
+        src: ../../helloworld
+        dest: /opt/app/helloworld
+        owner: deployer
+        group: deployer
+        mode: '0755'
+
+    - name: Copy templates
+      copy:
+        src: ../../app/templates/index.html
+        dest: /opt/app/templates/index.html
+        owner: deployer
+        group: deployer
+
+    - name: Copy static files
+      copy:
+        src: ../../app/static
+        dest: /opt/app/
+        owner: deployer
+        group: deployer
+
+    - name: Create environment file
+      copy:
+        dest: /etc/helloworld.env
+        content: "APP_PORTS={{ app_ports }}\n"
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Set capabilities for binary
+      capabilities:
+        path: /opt/app/helloworld
+        capability: cap_net_bind_service=+ep
+        state: present
+
+    - name: Create systemd service unit
+      copy:
+        dest: /etc/systemd/system/helloworld.service
+        content: |
+          [Unit]
+          Description=Helloworld Go App
+          After=network.target
+
+          [Service]
+          ExecStart=/opt/app/helloworld
+          User=deployer
+          Group=deployer
+          EnvironmentFile=/etc/helloworld.env
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Reload systemd and restart service
+      systemd:
+        name: helloworld
+        state: restarted
+        daemon_reload: yes
+        enabled: yes

@@ -1,40 +1,81 @@
 #cloud-config
 
 package_update: true
+package_upgrade: true
 
 packages:
     - ufw
     - fail2ban
     - libpam-google-authenticator
+    - unattended-upgrades
+
+users:
+  - name: deployer
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ${ssh_key}
 
 write_files:
   - path: /etc/fail2ban/jail.local
     content: |
       [sshd]
       enabled = true
-      port = ssh
+      port = 22
       filter = sshd
       logpath = /var/log/auth.log
       maxretry = 5
       bantime = 1h
 
 runcmd:
-    - ufw allow OpenSSH
+    - ufw allow 22/tcp
     - ufw allow 80
     - ufw allow 443
     - ufw --force enable
     - mkdir -p /opt/app
-    # Allow Go app to bind to privileged ports (80, 443)
-    - setcap 'cap_net_bind_service=+ep' /opt/app/helloworld
-    # Set root password
+    - chown -R deployer:deployer /opt/app
+    # Set passwords
     - echo "root:${root_password}" | chpasswd
-    # Enable password authentication in SSH (as requested)
-    - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-    # Configure PAM for MFA (MFA requirement)
-    # Note: Full MFA setup usually requires interactive 'google-authenticator' run per user.
-    # We prepare the system for it.
-    - sed -i 's/ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
-    - echo "auth required pam_google_authenticator.so nullok" >> /etc/pam.d/sshd
+    - echo "deployer:${deployer_password}" | chpasswd
+    # Configure Google Authenticator for deployer
+    - |
+      cat <<EOF > /home/deployer/.google_authenticator
+      ${pam_token}
+      " WINDOW_SIZE 17
+      " TOTP_AUTH
+      " DISALLOW_REUSE
+      " RATE_LIMIT 3 30
+      EOF
+    - chown deployer:deployer /home/deployer/.google_authenticator
+    - chmod 400 /home/deployer/.google_authenticator
+    # Best Practice 2026: SSH Hardening
+    # 0. Change SSH Port and restrict users
+    - sed -i 's/^#\?Port .*/Port 22/' /etc/ssh/sshd_config
+    - echo "AllowUsers deployer" >> /etc/ssh/sshd_config
+    # 1. Enable Password Authentication (as one of the factors)
+    - sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+    # 2. Disable root login with password (only allow keys)
+    - sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+    # 3. Disable empty passwords
+    - sed -i 's/^#\?PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config
+    # 4. Enable PAM and Keyboard Interactive for MFA
+    - sed -i 's/^#\?UsePAM .*/UsePAM yes/' /etc/ssh/sshd_config
+    - sed -i 's/^#\?KbdInteractiveAuthentication .*/KbdInteractiveAuthentication yes/' /etc/ssh/sshd_config
+    - sed -i 's/^#\?ChallengeResponseAuthentication .*/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
+    # 5. Enforce 3-Factor Authentication (Key + Password + TOTP)
+    # Absolute Best Practice 2026: Multiple Systems of Defense
+    # Requirement: publickey (Something you HAVE) AND keyboard-interactive (Something you KNOW + Something you HAVE/TOKEN)
+    - echo "AuthenticationMethods publickey,keyboard-interactive" > /etc/ssh/sshd_config.d/mfa.conf
+    # Configure PAM to require both Password and TOTP
+    - sed -i 's/@include common-auth/#@include common-auth/' /etc/pam.d/sshd
+    - echo "auth required pam_unix.so" >> /etc/pam.d/sshd
+    - echo "auth required pam_google_authenticator.so" >> /etc/pam.d/sshd
+    # 6. Tighten SSH algorithms (2026 standards)
+    - echo "HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256" >> /etc/ssh/sshd_config
+    - echo "KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256" >> /etc/ssh/sshd_config
+    - echo "Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com" >> /etc/ssh/sshd_config
+    - echo "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com" >> /etc/ssh/sshd_config
     - systemctl restart ssh
     - systemctl enable fail2ban
     - systemctl restart fail2ban

@@ -55,22 +55,22 @@ sudo apt install golang-go
 
 ---
 
-### 3. Install Make, jq, and Netcat
-Make is used to run the project commands, jq is for processing data, and netcat is for health checks.
+### 3. Install Make, jq, Netcat, and Ansible
+Make is used to run the project commands, jq is for processing data, netcat is for health checks, and Ansible is for deployment.
 
 #### **macOS**
 ```bash
-brew install make jq netcat
+brew install make jq netcat ansible
 ```
 
 #### **Windows**
 ```powershell
-choco install make jq
+choco install make jq ansible
 # Note: Netcat is usually available in WSL or can be installed via 'make setup'
 ```
 
 #### **Linux**
 ```bash
 sudo apt update
-sudo apt install build-essential jq netcat-openbsd
+sudo apt install build-essential jq netcat-openbsd ansible
 ```
