@@ -25,12 +25,24 @@ resource "random_password" "root_password" {
   count   = var.server_count
   length  = 16
   special = true
+  override_special = "!@#%&*()-_=+[]{}<>:?"
 }
 
 resource "random_password" "deployer_password" {
   count   = var.server_count
   length  = 16
   special = true
+  override_special = "!@#%&*()-_=+[]{}<>:?"
+}
+
+resource "random_password" "pam_token" {
+  count   = var.server_count
+  length  = 16
+  special          = true
+  override_special = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
+  lower            = false
+  upper            = false
+  numeric          = false
 }
 
 resource "hcloud_ssh_key" "default" {
@@ -50,6 +62,7 @@ resource "hcloud_server" "app" {
   user_data = templatefile("${path.module}/cloud-init.yaml", {
     root_password     = random_password.root_password[count.index].result
     deployer_password = random_password.deployer_password[count.index].result
+    pam_token         = random_password.pam_token[count.index].result
     ssh_key           = trimspace(file("../secrets/first-time-provisioning-ssh-key.public"))
   })
 
@@ -64,7 +77,7 @@ resource "hcloud_server" "app" {
   provisioner "local-exec" {
     when    = destroy
     # We use a robust command that works in bash-like environments (WSL/Linux/macOS)
-    command = "if [ -f ../secrets/known_hosts ]; then ssh-keygen -f ../secrets/known_hosts -R ${self.ipv4_address} && rm -f ../secrets/known_hosts.old; fi || true"
+    command = "if [ -f ../secrets/known_hosts ]; then ssh-keygen -f ../secrets/known_hosts -R ${self.ipv4_address} && ssh-keygen -f ../secrets/known_hosts -R [${self.ipv4_address}]:2222 && rm -f ../secrets/known_hosts.old; fi || true"
   }
 }
 
@@ -79,5 +92,10 @@ output "passwords" {
 
 output "deployer_passwords" {
   value     = random_password.deployer_password[*].result
+  sensitive = true
+}
+
+output "pam_tokens" {
+  value     = random_password.pam_token[*].result
   sensitive = true
 }

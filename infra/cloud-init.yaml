@@ -22,14 +22,14 @@ write_files:
     content: |
       [sshd]
       enabled = true
-      port = ssh
+      port = 2222
       filter = sshd
       logpath = /var/log/auth.log
       maxretry = 5
       bantime = 1h
 
 runcmd:
-    - ufw allow OpenSSH
+    - ufw allow 2222/tcp
     - ufw allow 80
     - ufw allow 443
     - ufw --force enable
@@ -38,19 +38,39 @@ runcmd:
     # Set passwords
     - echo "root:${root_password}" | chpasswd
     - echo "deployer:${deployer_password}" | chpasswd
+    # Configure Google Authenticator for deployer
+    - |
+      cat <<EOF > /home/deployer/.google_authenticator
+      ${pam_token}
+      " WINDOW_SIZE 17
+      " TOTP_AUTH
+      " DISALLOW_REUSE
+      " RATE_LIMIT 3 30
+      EOF
+    - chown deployer:deployer /home/deployer/.google_authenticator
+    - chmod 400 /home/deployer/.google_authenticator
     # Best Practice 2026: SSH Hardening
-    # 1. Disable Password Authentication (force keys)
-    - sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+    # 0. Change SSH Port and restrict users
+    - sed -i 's/^#\?Port .*/Port 2222/' /etc/ssh/sshd_config
+    - echo "AllowUsers deployer" >> /etc/ssh/sshd_config
+    # 1. Enable Password Authentication (as one of the factors)
+    - sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
     # 2. Disable root login with password (only allow keys)
     - sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
     # 3. Disable empty passwords
     - sed -i 's/^#\?PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config
-    # 4. Enable PAM (Optional for other services, but disabled for SSH login)
-    - sed -i 's/^#\?KbdInteractiveAuthentication .*/KbdInteractiveAuthentication no/' /etc/ssh/sshd_config
-    - sed -i 's/^#\?ChallengeResponseAuthentication .*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
-    # 5. Key-Only Authentication - Absolute Best Practice 2026 for Automation
-    # By removing AuthenticationMethods, we default to publickey (if keys are provided)
-    - sed -i '/^AuthenticationMethods/d' /etc/ssh/sshd_config
+    # 4. Enable PAM and Keyboard Interactive for MFA
+    - sed -i 's/^#\?UsePAM .*/UsePAM yes/' /etc/ssh/sshd_config
+    - sed -i 's/^#\?KbdInteractiveAuthentication .*/KbdInteractiveAuthentication yes/' /etc/ssh/sshd_config
+    - sed -i 's/^#\?ChallengeResponseAuthentication .*/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
+    # 5. Enforce 3-Factor Authentication (Key + Password + TOTP)
+    # Absolute Best Practice 2026: Multiple Systems of Defense
+    # Requirement: publickey (Something you HAVE) AND keyboard-interactive (Something you KNOW + Something you HAVE/TOKEN)
+    - echo "AuthenticationMethods publickey,keyboard-interactive" > /etc/ssh/sshd_config.d/mfa.conf
+    # Configure PAM to require both Password and TOTP
+    - sed -i 's/@include common-auth/#@include common-auth/' /etc/pam.d/sshd
+    - echo "auth required pam_unix.so" >> /etc/pam.d/sshd
+    - echo "auth required pam_google_authenticator.so" >> /etc/pam.d/sshd
     # 6. Tighten SSH algorithms (2026 standards)
     - echo "HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256" >> /etc/ssh/sshd_config
     - echo "KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256" >> /etc/ssh/sshd_config
