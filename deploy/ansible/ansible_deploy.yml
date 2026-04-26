@@ -25,7 +25,7 @@
 
     - name: Copy helloworld binary
       copy:
-        src: ../../helloworld
+        src: ../../bin/helloworld
         dest: /opt/app/helloworld
         owner: deployer
         group: deployer

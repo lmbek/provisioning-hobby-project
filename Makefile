@@ -1,4 +1,5 @@
 APP_NAME=helloworld
+BIN_DIR=bin
 TF_DIR=infra
 IP_FILE=deploy/state/ips
 PASS_FILE=deploy/state/passwords
@@ -14,8 +15,9 @@ SSH_KEY=$(SSH_KEY_DIR)/id_ed25519
 SSH_PUB_KEY=deploy/state/first-time-provisioning-ssh-key.public
 SSH_PASSPHRASE_FILE=deploy/state/ssh_key_passphrase
 SSH_CONFIG=deploy/state/ssh_config
-SSH_KNOWN_HOSTS=deploy/ansible/known_hosts
+SSH_KNOWN_HOSTS=deploy/state/known_hosts
 SSH_PORT=22
+GO_CLI_BIN=$(CURDIR)/$(BIN_DIR)/go-cli
 
 # Load app configuration from .env
 ifneq ("$(wildcard $(ENV_FILE))","")
@@ -26,7 +28,14 @@ endif
 # Default server count if not provided in .env
 SERVER_COUNT ?= 2
 
-.PHONY: provision bootstrap setup infra deploy down keys ssh
+.PHONY: provision bootstrap setup infra deploy sh_deploy ansible_deploy down keys ssh build-cli
+
+build-cli: $(GO_CLI_BIN)
+
+$(GO_CLI_BIN): deploy/go-cli/main.go deploy/go-cli/go.mod
+	@mkdir -p $(BIN_DIR)
+	@echo "🔨 Building Go CLI..."
+	@cd deploy/go-cli && go build -o $(GO_CLI_BIN) .
 
 provision:
 	@$(MAKE) keys
@@ -37,7 +46,7 @@ bootstrap: provision
 
 keys:
 	@mkdir -p $(SSH_KEY_DIR)
-	@mkdir -p deploy/ansible deploy/state
+	@mkdir -p deploy/ansible deploy/state $(BIN_DIR)
 	@if [ ! -f $(SSH_KEY) ]; then \
 		echo "🔑 Generating new SSH key pair with passphrase in $(SSH_KEY_DIR)..."; \
 		PASSPHRASE=$$(openssl rand -base64 16 || head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16); \
@@ -115,11 +124,27 @@ infra:
 	done
 	@rm -f $(SSH_KNOWN_HOSTS).old
 
-deploy:
+deploy: go-deploy
+
+
+go-deploy:
 	@echo "🔧 building app..."
-	@go mod tidy
-	@GOOS=linux GOARCH=amd64 go build -o $(APP_NAME) ./app
-	@$(MAKE) -C scripts deploy
+	@mkdir -p $(BIN_DIR)
+	@cd app && go mod tidy
+	@cd app && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../$(BIN_DIR)/$(APP_NAME) .
+	@echo "🚀 deploying with Go CLI..."
+	@$(MAKE) build-cli
+	@SSH_KEY_PATH=$(SSH_KEY) $(GO_CLI_BIN) deploy
+
+sh-deploy:
+	@bash deploy/sh/deploy.sh
+
+ansible-deploy:
+	@echo "🔧 building app..."
+	@mkdir -p $(BIN_DIR)
+	@cd app && go mod tidy
+	@cd app && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o ../$(BIN_DIR)/$(APP_NAME) .
+	@$(MAKE) -C scripts ansible_deploy
 
 down:
 	@cd $(TF_DIR) && terraform destroy -auto-approve -var="hcloud_token=$(HCLOUD_TOKEN)" -var="server_count=$(SERVER_COUNT)"
@@ -134,6 +159,7 @@ down:
 	@rm -f $(SSH_KNOWN_HOSTS) $(SSH_KNOWN_HOSTS).old
 	@rm -rf $(SSH_KEY_DIR)
 	@rm -rf infra/state/
+	@rm -rf $(BIN_DIR)
 
 ssh:
 	@$(MAKE) -C scripts ssh

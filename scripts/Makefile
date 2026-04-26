@@ -1,18 +1,20 @@
-export ANSIBLE_CONFIG := $(CURDIR)/../deploy/ansible.cfg
+export ANSIBLE_CONFIG := $(CURDIR)/../deploy/ansible/ansible.cfg
 
-.PHONY: setup ssh check-updates update-servers deploy open-tunnels
+.PHONY: setup ssh check-updates update-servers ansible_deploy open-tunnels
 
 setup:
 	@bash setup_local.sh
 
 ssh: open-tunnels
-	@bash ssh.sh
+	@cd .. && $(MAKE) build-cli
+	@cd .. && SSH_KEY_PATH=$(SSH_KEY) ./bin/go-cli ssh
 
 open-tunnels:
-	@cd ../deploy && bash open_tunnels.sh
+	@cd .. && $(MAKE) build-cli
+	@cd .. && SSH_KEY_PATH=$(SSH_KEY) ./bin/go-cli tunnels
 
-deploy: open-tunnels
-	@cd ../deploy && ansible-playbook -i ansible/inventory.ini ansible/deploy.yml
+ansible_deploy: open-tunnels
+	@cd ../deploy && ansible-playbook -i ansible/inventory.ini ansible/ansible_deploy.yml
 
 check-updates: open-tunnels
 	@cd ../deploy && ansible-playbook -i ansible/inventory.ini ansible/maintenance.yml -e action=check
