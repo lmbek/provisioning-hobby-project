@@ -1,11 +1,21 @@
 #cloud-config
 
 package_update: true
+package_upgrade: true
 
 packages:
     - ufw
     - fail2ban
     - libpam-google-authenticator
+    - unattended-upgrades
+
+users:
+  - name: deployer
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    shell: /bin/bash
+    lock_passwd: false
+    ssh_authorized_keys:
+      - ${ssh_key}
 
 write_files:
   - path: /etc/fail2ban/jail.local
@@ -24,17 +34,28 @@ runcmd:
     - ufw allow 443
     - ufw --force enable
     - mkdir -p /opt/app
-    # Allow Go app to bind to privileged ports (80, 443)
-    - setcap 'cap_net_bind_service=+ep' /opt/app/helloworld
-    # Set root password
+    - chown -R deployer:deployer /opt/app
+    # Set passwords
     - echo "root:${root_password}" | chpasswd
-    # Enable password authentication in SSH (as requested)
-    - sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-    # Configure PAM for MFA (MFA requirement)
-    # Note: Full MFA setup usually requires interactive 'google-authenticator' run per user.
-    # We prepare the system for it.
-    - sed -i 's/ChallengeResponseAuthentication no/ChallengeResponseAuthentication yes/' /etc/ssh/sshd_config
-    - echo "auth required pam_google_authenticator.so nullok" >> /etc/pam.d/sshd
+    - echo "deployer:${deployer_password}" | chpasswd
+    # Best Practice 2026: SSH Hardening
+    # 1. Disable Password Authentication (force keys)
+    - sed -i 's/^#\?PasswordAuthentication .*/PasswordAuthentication no/' /etc/ssh/sshd_config
+    # 2. Disable root login with password (only allow keys)
+    - sed -i 's/^#\?PermitRootLogin .*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+    # 3. Disable empty passwords
+    - sed -i 's/^#\?PermitEmptyPasswords .*/PermitEmptyPasswords no/' /etc/ssh/sshd_config
+    # 4. Enable PAM (Optional for other services, but disabled for SSH login)
+    - sed -i 's/^#\?KbdInteractiveAuthentication .*/KbdInteractiveAuthentication no/' /etc/ssh/sshd_config
+    - sed -i 's/^#\?ChallengeResponseAuthentication .*/ChallengeResponseAuthentication no/' /etc/ssh/sshd_config
+    # 5. Key-Only Authentication - Absolute Best Practice 2026 for Automation
+    # By removing AuthenticationMethods, we default to publickey (if keys are provided)
+    - sed -i '/^AuthenticationMethods/d' /etc/ssh/sshd_config
+    # 6. Tighten SSH algorithms (2026 standards)
+    - echo "HostKeyAlgorithms ssh-ed25519,ssh-ed25519-cert-v01@openssh.com,rsa-sha2-512,rsa-sha2-256" >> /etc/ssh/sshd_config
+    - echo "KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256" >> /etc/ssh/sshd_config
+    - echo "Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com" >> /etc/ssh/sshd_config
+    - echo "MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com" >> /etc/ssh/sshd_config
     - systemctl restart ssh
     - systemctl enable fail2ban
     - systemctl restart fail2ban
