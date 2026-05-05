@@ -40,7 +40,7 @@ $(GO_CLI_BIN): deploy/go-cli/main.go deploy/go-cli/go.mod
 provision:
 	@$(MAKE) keys
 	@$(MAKE) infra
-	@$(MAKE) deploy
+	@$(MAKE) sh-deploy
 
 bootstrap: provision
 
